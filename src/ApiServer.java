@@ -1,10 +1,8 @@
-import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.sql.*;
-import java.time.LocalTime;
-import java.util.*;
 
 public class ApiServer {
     private static final String DB_URL = "jdbc:sqlite:campus_food.db";
@@ -82,6 +80,11 @@ public class ApiServer {
             pstmt.setInt(1, stallId);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) count = rs.getInt(1);
+        } catch (Exception e) { 
+            // 👉 這裡就是幫你補上的 catch 區塊，解決編譯報錯的問題
+            e.printStackTrace(); 
+            sendResponse(ex, 500, "{\"error\":\"取得人潮失敗\"}"); 
+            return; 
         }
         sendResponse(ex, 200, String.format("{\"count\":%d, \"level\":\"%s\"}", count, (count > 5 ? "忙碌" : "空閒")));
     }
