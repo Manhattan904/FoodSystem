@@ -2,56 +2,121 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>校園美食系統</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園美食人流與評論系統</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        h1 { color: #1a73e8; text-align: center; border-bottom: 2px solid #e8eaed; padding-bottom: 15px; margin-top: 0; }
+        .section { margin-bottom: 25px; }
+        select, input[type="text"] { width: calc(100% - 110px); padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; margin-right: 10px; }
+        button { padding: 10px 15px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: #1557b0; }
+        .status-card { background-color: #e8f0fe; padding: 15px; border-radius: 8px; border-left: 5px solid #1a73e8; margin-top: 10px; }
+        .reviews-list { list-style-type: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        .reviews-list li { background: #f8f9fa; margin-bottom: 10px; padding: 12px; border-radius: 6px; border: 1px solid #dadce0; line-height: 1.5; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 8px; }
+        .badge.positive { background-color: #ceead6; color: #0d652d; }
+        .badge.negative { background-color: #fad2cf; color: #a50e0e; }
+        .badge.neutral { background-color: #e8eaed; color: #3c4043; }
+    </style>
 </head>
 <body>
+
+<div class="container">
     <h1>🍔 校園美食系統</h1>
-    
-    <label>選擇攤位：</label>
-    <select id="stallSelect">
-        </select>
-    <button onclick="checkIn()">📍 簽到</button>
 
-    <script>
-        // 設定雲端 API 的網址
-        const API_URL = 'https://campus-food-api.onrender.com';
+    <div class="section">
+        <label style="font-weight: bold; display: block; margin-bottom: 8px;">選擇攤位：</label>
+        <div style="display: flex;">
+            <select id="stallSelect" onchange="loadStallData()"></select>
+            <button onclick="checkIn()">📍 簽到</button>
+        </div>
+    </div>
 
-        // 載入攤位資料
-        async function loadStalls() {
-            try {
-                const response = await fetch(`${API_URL}/stalls`);
-                const stalls = await response.json();
-                const select = document.getElementById('stallSelect');
-                
-                stalls.forEach(stall => {
-                    let option = document.createElement('option');
-                    option.value = stall.id;
-                    option.textContent = `${stall.name} (${stall.location})`;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error("無法連接到雲端後端:", error);
-                alert("後端連線失敗，請檢查網路！");
-            }
+    <div class="section">
+        <h3 style="margin-bottom: 10px;">📊 AI 資訊增益人流預測</h3>
+        <div class="status-card" id="crowdLevel">載入中...</div>
+    </div>
+
+    <div class="section">
+        <h3 style="margin-bottom: 10px;">💬 顧客評論 (Gemini 情緒分析)</h3>
+        <div style="display: flex; margin-bottom: 15px;">
+            <input type="text" id="reviewInput" placeholder="寫下你的評論...">
+            <button id="submitBtn" onclick="submitReview()">送出</button>
+        </div>
+        <ul class="reviews-list" id="reviewList"></ul>
+    </div>
+</div>
+
+<script>
+    // ⚠️ 如果是在本地端測試，請用 http://localhost:8080
+    // ⚠️ 如果你部署到 Render 了，請將下面這行改成 Render 提供的網址，例如：
+    // const API_BASE = 'https://你的專案名稱.onrender.com';
+    const API_BASE = 'http://localhost:8080';
+
+    async function loadStalls() {
+        try {
+            const res = await fetch(`${API_BASE}/stalls`);
+            const stalls = await res.json();
+            const select = document.getElementById('stallSelect');
+            select.innerHTML = '';
+            stalls.forEach(s => {
+                select.innerHTML += `<option value="${s.id}">${s.name} (${s.location})</option>`;
+            });
+            loadStallData();
+        } catch (e) {
+            document.getElementById('crowdLevel').innerText = "連線失敗，請確認 API 網址是否正確且伺服器已啟動";
         }
+    }
 
-        // 簽到功能
-        async function checkIn() {
-            const stallId = document.getElementById('stallSelect').value;
-            try {
-                const response = await fetch(`${API_URL}/checkins`, {
-                    method: 'POST',
-                    body: stallId
-                });
-                const result = await response.json();
-                alert(result.status);
-            } catch (error) {
-                alert("簽到失敗！");
-            }
-        }
+    async function loadStallData() {
+        const stallId = document.getElementById('stallSelect').value;
+        if (!stallId) return;
 
-        // 網頁啟動時載入資料
-        window.onload = loadStalls;
-    </script>
+        const crowdRes = await fetch(`${API_BASE}/stalls/${stallId}/crowd-level`);
+        const crowdData = await crowdRes.json();
+        const statusColor = crowdData.crowd_level && crowdData.crowd_level.includes("忙碌") ? "red" : "green";
+        document.getElementById('crowdLevel').innerHTML = 
+            `<strong>判定結果：<span style="color:${statusColor}">${crowdData.crowd_level || '未知'}</span></strong><br>
+             <small style="color:gray;">門檻: ${crowdData.calculated_threshold || 0} 人 / 目前: ${crowdData.current_hour_count || 0} 人</small>`;
+
+        const reviewRes = await fetch(`${API_BASE}/reviews?stall_id=${stallId}`);
+        const reviews = await reviewRes.json();
+        const list = document.getElementById('reviewList');
+        list.innerHTML = '';
+        reviews.forEach(r => {
+            const badgeClass = r.sentiment === 'positive' ? 'positive' : (r.sentiment === 'negative' ? 'negative' : 'neutral');
+            list.innerHTML += `<li>${r.content} <span class="badge ${badgeClass}">${r.sentiment.toUpperCase()}</span></li>`;
+        });
+    }
+
+    async function checkIn() {
+        const stallId = document.getElementById('stallSelect').value;
+        await fetch(`${API_BASE}/checkins`, { method: 'POST', body: stallId });
+        alert('🎉 簽到成功！');
+        loadStallData();
+    }
+
+    async function submitReview() {
+        const stallId = document.getElementById('stallSelect').value;
+        const inputField = document.getElementById('reviewInput');
+        const content = inputField.value.trim();
+        if (!content) return alert('請先輸入評論！');
+        
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "分析中...";
+        btn.disabled = true;
+        
+        await fetch(`${API_BASE}/reviews`, { method: 'POST', body: `${stallId}, ${content}` });
+        
+        inputField.value = '';
+        btn.innerText = "送出";
+        btn.disabled = false;
+        loadStallData();
+    }
+
+    loadStalls();
+</script>
 </body>
 </html>
