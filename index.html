@@ -50,10 +50,8 @@
 </div>
 
 <script>
-    // ⚠️ 如果是在本地端測試，請用 http://localhost:8080
-    // ⚠️ 如果你部署到 Render 了，請將下面這行改成 Render 提供的網址，例如：
-    // const API_BASE = 'https://你的專案名稱.onrender.com';
-    const API_BASE = 'http://localhost:8080';
+    // 已更新為 Railway 雲端網址
+    const API_BASE = 'https://foodsystem-production.up.railway.app';
 
     async function loadStalls() {
         try {
@@ -74,21 +72,25 @@
         const stallId = document.getElementById('stallSelect').value;
         if (!stallId) return;
 
-        const crowdRes = await fetch(`${API_BASE}/stalls/${stallId}/crowd-level`);
-        const crowdData = await crowdRes.json();
-        const statusColor = crowdData.crowd_level && crowdData.crowd_level.includes("忙碌") ? "red" : "green";
-        document.getElementById('crowdLevel').innerHTML = 
-            `<strong>判定結果：<span style="color:${statusColor}">${crowdData.crowd_level || '未知'}</span></strong><br>
-             <small style="color:gray;">門檻: ${crowdData.calculated_threshold || 0} 人 / 目前: ${crowdData.current_hour_count || 0} 人</small>`;
+        try {
+            const crowdRes = await fetch(`${API_BASE}/stalls/${stallId}/crowd-level`);
+            const crowdData = await crowdRes.json();
+            const statusColor = crowdData.crowd_level && crowdData.crowd_level.includes("忙碌") ? "red" : "green";
+            document.getElementById('crowdLevel').innerHTML = 
+                `<strong>判定結果：<span style="color:${statusColor}">${crowdData.crowd_level || '未知'}</span></strong><br>
+                 <small style="color:gray;">門檻: ${crowdData.calculated_threshold || 0} 人 / 目前: ${crowdData.current_hour_count || 0} 人</small>`;
 
-        const reviewRes = await fetch(`${API_BASE}/reviews?stall_id=${stallId}`);
-        const reviews = await reviewRes.json();
-        const list = document.getElementById('reviewList');
-        list.innerHTML = '';
-        reviews.forEach(r => {
-            const badgeClass = r.sentiment === 'positive' ? 'positive' : (r.sentiment === 'negative' ? 'negative' : 'neutral');
-            list.innerHTML += `<li>${r.content} <span class="badge ${badgeClass}">${r.sentiment.toUpperCase()}</span></li>`;
-        });
+            const reviewRes = await fetch(`${API_BASE}/reviews?stall_id=${stallId}`);
+            const reviews = await reviewRes.json();
+            const list = document.getElementById('reviewList');
+            list.innerHTML = '';
+            reviews.forEach(r => {
+                const badgeClass = r.sentiment === 'positive' ? 'positive' : (r.sentiment === 'negative' ? 'negative' : 'neutral');
+                list.innerHTML += `<li>${r.content} <span class="badge ${badgeClass}">${r.sentiment.toUpperCase()}</span></li>`;
+            });
+        } catch (e) {
+            console.error("載入資料失敗:", e);
+        }
     }
 
     async function checkIn() {
